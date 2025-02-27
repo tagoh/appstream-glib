@@ -121,6 +121,7 @@ if get_option('fonts')
       gdkpixbuf,
       gdk,
       fontconfig,
+      harfbuzz,
     ],
     c_args : asb_plugins_cargs,
     name_suffix: name_suffix,

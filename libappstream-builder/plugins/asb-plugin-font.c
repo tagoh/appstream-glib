@@ -10,10 +10,11 @@
 #include <gdk/gdk.h>
 
 #include <cairo/cairo.h>
-#include <cairo/cairo-ft.h>
 #include <pango/pango.h>
 #include <pango/pangofc-fontmap.h>
 #include <fontconfig/fontconfig.h>
+#include <hb.h>
+#include <hb-cairo.h>
 
 #include <asb-plugin.h>
 
@@ -280,6 +281,7 @@ asb_font_get_pixbuf (const FcPattern *pat,
 		     const gchar *text,
 		     GError **error)
 {
+	hb_face_t *hb_face;
 	cairo_font_face_t *font_face;
 	cairo_surface_t *surface;
 	cairo_t *cr;
@@ -287,12 +289,23 @@ asb_font_get_pixbuf (const FcPattern *pat,
 	GdkPixbuf *pixbuf;
 	guint text_size = 64;
 	guint border_width = 8;
+	const gchar *filename = NULL;
+	gint idx = -1;
 
 	/* set up font */
+	FcPatternGetString (pat, FC_FILE, 0, (FcChar8 **) &filename);
+	FcPatternGetInteger (pat, FC_INDEX, 0, &idx);
+	if (filename == NULL || idx == -1) {
+		g_set_error_literal (error, ASB_PLUGIN_ERROR, ASB_PLUGIN_ERROR_FAILED,
+				     "Unable to get filename or index from pattern");
+		return NULL;
+	}
+
+	hb_face = hb_face_create_from_file_or_fail (filename, idx);
+	font_face = hb_cairo_font_face_create_for_face (hb_face);
 	surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
 					      (gint) width, (gint) height);
 	cr = cairo_create (surface);
-	font_face = cairo_ft_font_face_create_for_pattern ((FcPattern *) pat);
 	cairo_set_font_face (cr, font_face);
 
 	/* calculate best font size */
@@ -307,9 +320,7 @@ asb_font_get_pixbuf (const FcPattern *pat,
 	}
 
 	/* center text and blit to a pixbuf */
-	cairo_move_to (cr,
-		       (width / 2) - te.width / 2 - te.x_bearing,
-		       (height / 2) - te.height / 2 - te.y_bearing);
+	cairo_move_to (cr, (width - te.width) / 2., (height - te.height) / 2. - te.y_bearing);
 	cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
 	cairo_show_text (cr, text);
 	pixbuf = gdk_pixbuf_get_from_surface (surface, 0, 0, (gint) width, (gint) height);
@@ -323,6 +334,7 @@ asb_font_get_pixbuf (const FcPattern *pat,
 	cairo_destroy (cr);
 	cairo_font_face_destroy (font_face);
 	cairo_surface_destroy (surface);
+	hb_face_destroy (hb_face);
 	return pixbuf;
 }
 

@@ -89,6 +89,7 @@ if get_option('builder')
     gdk = dependency('gdk-3.0')
     conf.set('HAVE_FONTS', 1)
     fontconfig = dependency('fontconfig')
+    harfbuzz = dependency('harfbuzz-cairo')
   endif
 endif
 
